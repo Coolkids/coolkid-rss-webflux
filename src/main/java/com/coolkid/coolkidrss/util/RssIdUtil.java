@@ -15,10 +15,8 @@ public class RssIdUtil {
 
     private static void init(){
         Props props = new Props("application.properties");
-        String profile = props.getStr("spring.profiles.active");
-        Props props2 = new Props("application-"+profile+".properties");
-        long databaseId = props2.getLong("coolkidrss.databaseId", 1L);
-        long nodeId = props2.getLong("coolkidrss.nodeId", 1L);
+        long databaseId = props.getLong("coolkidrss.databaseId", 1L);
+        long nodeId = props.getLong("coolkidrss.nodeId", 1L);
         generatorSupplier = Suppliers.memoize(() -> new SnowflakeIdGenerator(nodeId, databaseId));
     }
 
