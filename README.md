@@ -4,6 +4,10 @@
 
 当前仓库只包含后端服务，不包含 Web 前端，也没有内置用户认证层。接口默认挂载在 `/coolkid-rss` 下。
 
+## 镜像与相关链接
+
+- 容器镜像及部署配置：[coolkid-rss-container](https://github.com/Coolkids/coolkid-rss-container)
+
 ## 功能
 
 - RSS/Atom 订阅源管理、手动刷新和排序
