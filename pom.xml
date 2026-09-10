@@ -10,12 +10,13 @@
     </parent>
     <groupId>com.coolkid</groupId>
     <artifactId>coolkid-rss-webflux</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>1.0.1-SNAPSHOT</version>
     <name>coolkid-rss-webflux</name>
     <description>
         coolkid`s rss download util webflux version
         mvn versions:use-latest-versions
         2026.6.3升级
+        2026.9.10升级
     </description>
     <url/>
     <licenses>
