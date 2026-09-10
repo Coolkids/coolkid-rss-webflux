@@ -8,6 +8,7 @@ import org.springframework.data.mongodb.repository.Update;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.Collection;
 import java.util.Date;
 
 /**
@@ -19,6 +20,10 @@ public interface RssFeedRecordRepository extends ReactiveMongoRepository<RssFeed
     Mono<Void> deleteByTsBefore(Date date);
 
     Mono<Long> countByTsBefore(Date date);
+
+    Mono<Void> deleteByFeedIdNotIn(Collection<String> feedIds);
+
+    Mono<Long> countByFeedIdNotIn(Collection<String> feedIds);
 
     Flux<RssFeedRecord> findByFeedId(String feedId);
 
