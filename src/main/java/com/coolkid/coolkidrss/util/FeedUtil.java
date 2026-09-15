@@ -3,6 +3,7 @@ package com.coolkid.coolkidrss.util;
 import com.coolkid.coolkidrss.aop.CacheExpire;
 import com.coolkid.coolkidrss.aop.DistributedLock;
 import com.coolkid.coolkidrss.entity.RssFeedRecord;
+import com.coolkid.coolkidrss.entity.FeedType;
 import com.rometools.rome.feed.synd.SyndContent;
 import com.rometools.rome.feed.synd.SyndEnclosure;
 import com.rometools.rome.feed.synd.SyndEntry;
@@ -39,6 +40,7 @@ import java.util.concurrent.TimeUnit;
 @Data
 public class FeedUtil {
     private final RssUrlDownloadUtil rssUrlDownloadUtil;
+    private final FeedTypeProcessor feedTypeProcessor;
 
     @Value("${coolkidrss.keep.data.month}")
     private int month;
@@ -63,6 +65,14 @@ public class FeedUtil {
     @CacheExpire(ttl = 5, unit = TimeUnit.MINUTES)
     @DistributedLock(name = "'RssGetItems'+#url")
     public List<RssFeedRecord> getItems(String url, String feedId) {
+        return getItems(url, feedId, FeedType.OTHER);
+    }
+
+    @SneakyThrows
+    @Cacheable(value = "RssFeedRecordCache", key = "#url + ':' + #feedType", cacheResolver = "redisExpireCacheResolver")
+    @CacheExpire(ttl = 5, unit = TimeUnit.MINUTES)
+    @DistributedLock(name = "'RssGetItems'+#url")
+    public List<RssFeedRecord> getItems(String url, String feedId, FeedType feedType) {
         log.info("开始获取数据:{}", url);
         String rssContent = rssUrlDownloadUtil.getRssContent(url);
 
@@ -106,6 +116,7 @@ public class FeedUtil {
                     rssFeedRecord.setRecordDlurl(syndEnclosure.getUrl());
                 }
                 setFeedDate(rssFeedRecord, entry, feed);
+                feedTypeProcessor.process(feedType, rssFeedRecord, entry);
                 rssFeedRecord.setRecordSha256(calSha256(rssFeedRecord));
                 Date lastDate = DateUtils.addMonths(new Date(), -month);
                 if (rssFeedRecord.getRecordPubdate().after(lastDate)) {
@@ -147,7 +158,9 @@ public class FeedUtil {
                                rssFeedRecord.getRecordTitle() +
                                rssFeedRecord.getRecordDescription() +
                                rssFeedRecord.getRecordUrl() +
-                               rssFeedRecord.getRecordDlurl();
+                               rssFeedRecord.getRecordDlurl() +
+                               rssFeedRecord.getRecordMediaInfo() +
+                               rssFeedRecord.getRecordPatch();
         return EasyUtil.sha256(stringBuilder);
     }
 }

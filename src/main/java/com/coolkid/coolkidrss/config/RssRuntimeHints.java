@@ -7,6 +7,7 @@ import com.coolkid.coolkidrss.entity.RssFeedRecord;
 import com.coolkid.coolkidrss.entity.RssRuleInfo;
 import com.coolkid.coolkidrss.model.request.FeedRecordReq;
 import com.coolkid.coolkidrss.model.task.DownloadParam;
+import com.coolkid.coolkidrss.model.response.RssPatch;
 import org.springframework.aot.hint.BindingReflectionHintsRegistrar;
 import org.springframework.aot.hint.ReflectionHints;
 import org.springframework.aot.hint.RuntimeHints;
@@ -42,6 +43,7 @@ public class RssRuntimeHints implements RuntimeHintsRegistrar {
                 RssDlLog.class,
                 RssFeedInfo.class,
                 RssFeedRecord.class,
+                RssPatch.class,
                 RssRuleInfo.class,
                 FeedRecordReq.class,
                 DownloadParam.class

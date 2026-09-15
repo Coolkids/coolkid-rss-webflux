@@ -4,6 +4,7 @@ import cn.hutool.core.bean.BeanUtil;
 import com.coolkid.coolkidrss.dao.RssFeedInfoRepository;
 import com.coolkid.coolkidrss.dao.RssFeedRecordRepository;
 import com.coolkid.coolkidrss.entity.RssFeedInfo;
+import com.coolkid.coolkidrss.entity.FeedType;
 import com.coolkid.coolkidrss.entity.RssFeedRecord;
 import com.coolkid.coolkidrss.model.request.FeedRecordReq;
 import com.coolkid.coolkidrss.model.request.RssFeedSortReq;
@@ -45,6 +46,9 @@ public class FeedServiceImpl implements FeedService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Mono<RssFeedInfo> save(RssFeedInfo rssFeedInfo) {
+        if (rssFeedInfo.getFeedType() == null) {
+            rssFeedInfo.setFeedType(FeedType.OTHER);
+        }
         if (StringUtils.isNotBlank(rssFeedInfo.getFeedId())) {
             return rssFeedInfoRepository.findById(rssFeedInfo.getFeedId())
                     .switchIfEmpty(Mono.error(new IllegalArgumentException("feed_id非法")))
@@ -103,6 +107,7 @@ public class FeedServiceImpl implements FeedService {
         }
 
         Map<String, Object> stringObjectMap = BeanUtil.beanToMap(rssFeedInfo, false, true);
+        stringObjectMap.putIfAbsent("feedType", FeedType.OTHER);
         if (rssFeedInfo.getSortOn() <= 0) {
             stringObjectMap.remove("sortOn");
         }

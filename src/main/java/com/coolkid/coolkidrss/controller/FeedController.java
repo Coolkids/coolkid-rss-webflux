@@ -8,8 +8,10 @@ import com.coolkid.coolkidrss.model.response.FailResult;
 import com.coolkid.coolkidrss.model.response.Page;
 import com.coolkid.coolkidrss.model.response.Result;
 import com.coolkid.coolkidrss.model.response.RssFeedInfoList;
+import com.coolkid.coolkidrss.model.response.RssPatch;
 import com.coolkid.coolkidrss.model.response.SuccessResult;
 import com.coolkid.coolkidrss.service.FeedService;
+import com.coolkid.coolkidrss.service.RssFeedRecordService;
 import lombok.Data;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -26,6 +28,7 @@ import java.util.List;
 @RequestMapping("/api/feed")
 public class FeedController {
     private final FeedService feedService;
+    private final RssFeedRecordService rssFeedRecordService;
 
     @GetMapping("getFeedList")
     public Mono<Result<List<RssFeedInfoList>>> getFeedList(boolean full){
@@ -38,6 +41,13 @@ public class FeedController {
     @PostMapping("getFeedRecord")
     public  Mono<Result<Page<RssFeedRecord>>> getFeedRecord(@RequestBody FeedRecordReq feedRecordReq){
         return feedService.getRecord(feedRecordReq).map(SuccessResult::new);
+    }
+
+    @GetMapping("recordPatch")
+    public Mono<Result<RssPatch>> recordPatch(String recordId) {
+        return rssFeedRecordService.getPatch(recordId)
+                .switchIfEmpty(Mono.error(new IllegalArgumentException("record_id非法")))
+                .map(SuccessResult::new);
     }
 
     @GetMapping("readRecord")

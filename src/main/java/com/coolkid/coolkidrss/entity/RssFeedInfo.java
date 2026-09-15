@@ -33,6 +33,10 @@ public class RssFeedInfo implements Serializable {
     @Indexed(name = "rss_feed_info_idx_uni", unique = true)
     private String feedUrl;
 
+    /** 内容类型：影视、新闻、代码、音乐、其他。 */
+    @Field("feed_type")
+    private FeedType feedType = FeedType.OTHER;
+
     /**
      * 上次更新时间
      */

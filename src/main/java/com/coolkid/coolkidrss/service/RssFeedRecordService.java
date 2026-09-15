@@ -6,6 +6,7 @@ import com.coolkid.coolkidrss.model.RuleFilter;
 import com.coolkid.coolkidrss.model.request.FeedRecordReq;
 import com.coolkid.coolkidrss.model.request.TestRuleReq;
 import com.coolkid.coolkidrss.model.response.Page;
+import com.coolkid.coolkidrss.model.response.RssPatch;
 import com.coolkid.coolkidrss.util.EasyUtil;
 import com.google.common.collect.Lists;
 import lombok.Data;
@@ -38,6 +39,15 @@ import java.util.*;
 public class RssFeedRecordService {
     private final ReactiveMongoTemplate mongoTemplate;
 
+    public Mono<RssPatch> getPatch(String recordId) {
+        Query query = Query.query(Criteria.where("_id").is(recordId));
+        query.fields().include("record_patch").include("record_patch_url")
+                .include("record_patch_size").include("record_patch_truncated");
+        return mongoTemplate.findOne(query, RssFeedRecord.class)
+                .map(record -> new RssPatch(record.getRecordPatch(), record.getRecordPatchUrl(),
+                        record.getRecordPatchSize(), record.getRecordPatchTruncated()));
+    }
+
     public Mono<Page<RssFeedRecord>> page(FeedRecordReq feedRecordReq) {
         return count(feedRecordReq).zipWhen(
                 t -> page(feedRecordReq,
@@ -63,18 +73,21 @@ public class RssFeedRecordService {
 
     public Flux<RssFeedRecord> query(FeedRecordReq feedRecordReq) {
         Query query = buildQuery(feedRecordReq);
+        query.fields().exclude("record_patch");
         query.with(Sort.by(Sort.Direction.DESC, "record_pubdate"));
         return mongoTemplate.find(query, RssFeedRecord.class);
     }
 
     public Flux<RssFeedRecord> query(RssRuleInfo rssRuleInfo) {
         Query query = buildQuery(rssRuleInfo);
+        query.fields().exclude("record_patch");
         query.with(Sort.by(Sort.Direction.DESC, "record_pubdate"));
         return mongoTemplate.find(query, RssFeedRecord.class);
     }
 
     public Flux<RssFeedRecord> page(FeedRecordReq feedRecordReq, Pageable pageable) {
         Query query = buildQuery(feedRecordReq);
+        query.fields().exclude("record_patch");
         query.with(pageable);
         return mongoTemplate.find(query, RssFeedRecord.class);
     }

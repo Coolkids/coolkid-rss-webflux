@@ -11,6 +11,9 @@
 ## 功能
 
 - RSS/Atom 订阅源管理、手动刷新和排序
+- Feed 类型支持影视、新闻、代码、音乐和其他；默认为其他
+- 影视 Feed 使用 anitopy4j 提取媒体名称、集数、分辨率等元数据
+- GitHub 代码 Feed 自动保存提交 patch，阅读页按需加载并预览变更
 - Feed 内容定时更新，未读/收藏状态管理
 - 普通关键词、排除关键词、`|` 或条件和正则表达式过滤
 - 下载器配置、单条记录下载和自动下载日志
@@ -30,6 +33,7 @@
 | MongoDB | Spring Data MongoDB Reactive |
 | Redis | Reactive Redis、缓存和分布式锁 |
 | RSS 解析 | Rome 2.1.0 |
+| 影视标题解析 | GitHub `https://github.com/Coolkids/anitopy4j` |
 | HTTP 客户端 | OkHttp 5.5.0 |
 | 构建工具 | Maven |
 
@@ -40,6 +44,30 @@
 - MongoDB
 - Redis
 - 可选：qBittorrent Web API 或 Transmission RPC
+
+影视标题解析依赖 GitHub 仓库 [Coolkids/anitopy4j](https://github.com/Coolkids/anitopy4j)。首次构建后端前，从远程仓库获取并安装依赖：
+
+```bash
+git clone --depth 1 https://github.com/Coolkids/anitopy4j.git anitopy4j
+mvn -f anitopy4j/pom.xml install -DskipTests
+```
+
+如果依赖仓库已经克隆，只需重新执行 Maven 安装命令。完整构建顺序为：
+
+```bash
+mvn -f anitopy4j/pom.xml install -DskipTests
+mvn clean package -DskipTests
+```
+
+容器镜像构建会自动克隆并安装 `anitopy4j`，无需预先安装到宿主机 Maven 仓库。请在 `coolkid-rss-container` 仓库目录执行：
+
+```bash
+cd ../code/coolkid-rss-container
+docker build \
+  --build-arg ANITOPY_REPO=https://github.com/Coolkids/anitopy4j.git \
+  --build-arg ANITOPY_REF=main \
+  -t coolkid-rss .
+```
 
 ## 配置
 
@@ -58,6 +86,7 @@
 | `CRW_SNID_ND` | `coolkidrss.nodeId` | `1` | Spring 配置中的 Snowflake 节点标识，范围 0–31 |
 | `CRW_SETTING_CLEAN_DATA` | `coolkidrss.clean.data` | `false` | 是否启用历史数据清理 |
 | `CRW_SETTING_CLEAN_DATA_MONTH` | `coolkidrss.keep.data.month` | `12` | 保留最近多少个月的数据 |
+| `CRW_RSS_CODE_PATCH_MAX_BYTES` | `coolkidrss.rss.code.patch.max-bytes` | `524288` | 单条代码 patch 最大保存字节数 |
 
 示例：
 

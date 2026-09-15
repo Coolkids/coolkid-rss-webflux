@@ -33,7 +33,7 @@ public class FeedRecordServiceImpl implements FeedRecordService {
     public Mono<Void> save(RssFeedInfo rssFeedInfo) {
         Date now = new Date();
         Date nextUpdate = DateUtils.addMinutes(now, rssFeedInfo.getFeedCrontab());
-        return Mono.fromCallable(() -> feedUtil.getItems(rssFeedInfo.getFeedUrl(), rssFeedInfo.getFeedId()))
+        return Mono.fromCallable(() -> feedUtil.getItems(rssFeedInfo.getFeedUrl(), rssFeedInfo.getFeedId(), rssFeedInfo.getFeedType()))
                 .subscribeOn(Schedulers.boundedElastic())
                 .flatMap(items -> CollectionUtils.isEmpty(items)
                         ? Mono.<Void>empty()

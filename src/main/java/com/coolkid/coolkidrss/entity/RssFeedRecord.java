@@ -1,6 +1,7 @@
 package com.coolkid.coolkidrss.entity;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.CompoundIndex;
@@ -11,6 +12,7 @@ import org.springframework.data.mongodb.core.mapping.Field;
 
 import java.io.Serializable;
 import java.util.Date;
+import java.util.Map;
 
 @Data
 @Document("rss_feed_record")
@@ -72,6 +74,24 @@ public class RssFeedRecord implements Serializable {
      */
     @Field("record_dlurl")
     private String recordDlurl;
+
+    /** 影视类型解析出的媒体元数据。 */
+    @Field("record_media_info")
+    private Map<String, Object> recordMediaInfo;
+
+    /** 代码类型对应提交的 patch；列表接口不返回，详情接口按需加载。 */
+    @JsonIgnore
+    @Field("record_patch")
+    private String recordPatch;
+
+    @Field("record_patch_url")
+    private String recordPatchUrl;
+
+    @Field("record_patch_size")
+    private Long recordPatchSize;
+
+    @Field("record_patch_truncated")
+    private Boolean recordPatchTruncated = false;
 
     /**
      * 附件是否下载 0:未下载 1:已下载
