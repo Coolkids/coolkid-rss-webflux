@@ -158,9 +158,7 @@ public class FeedUtil {
                                rssFeedRecord.getRecordTitle() +
                                rssFeedRecord.getRecordDescription() +
                                rssFeedRecord.getRecordUrl() +
-                               rssFeedRecord.getRecordDlurl() +
-                               rssFeedRecord.getRecordMediaInfo() +
-                               rssFeedRecord.getRecordPatch();
+                               rssFeedRecord.getRecordDlurl();
         return EasyUtil.sha256(stringBuilder);
     }
 }
