@@ -1,24 +1,24 @@
-package com.coolkid.coolkidrss.util;
+package com.coolkid.coolkidrss.service.impl;
 
 import com.coolkid.coolkidrss.entity.FeedType;
 import com.coolkid.coolkidrss.entity.RssFeedRecord;
+import com.coolkid.coolkidrss.service.FeedTypeStrategy;
+import com.coolkid.coolkidrss.util.RssUrlDownloadUtil;
 import com.rometools.rome.feed.synd.SyndEntry;
-import io.github.igorcmoura.anitopy4j.Anitopy;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.net.URI;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** 在 RSS 记录计算唯一值并入库前执行类型专用处理。 */
+/** 代码 Feed 策略：获取 GitHub 提交的 patch。 */
 @Slf4j
 @Component
-public class FeedTypeProcessor {
+public class CodeFeedTypeStrategy implements FeedTypeStrategy {
     private static final Pattern GITHUB_COMMIT = Pattern.compile(
             "^https?://github\\.com/([^/]+)/([^/]+)/(?:commit|commits)/([0-9a-fA-F]+)(?:[/?#].*)?$");
 
@@ -27,34 +27,17 @@ public class FeedTypeProcessor {
     @Value("${coolkidrss.rss.code.patch.max-bytes:524288}")
     private int patchMaxBytes;
 
-    public FeedTypeProcessor(RssUrlDownloadUtil rssUrlDownloadUtil) {
+    public CodeFeedTypeStrategy(RssUrlDownloadUtil rssUrlDownloadUtil) {
         this.rssUrlDownloadUtil = rssUrlDownloadUtil;
     }
 
-    public void process(FeedType type, RssFeedRecord record, SyndEntry entry) {
-        FeedType actualType = type == null ? FeedType.OTHER : type;
-        switch (actualType) {
-            case MOVIE -> processMovie(record);
-            case CODE -> processCode(record);
-            case NEWS, MUSIC, OTHER -> {
-                // 保留 RSS 原始内容，后续类型可以在这里扩展。
-            }
-        }
+    @Override
+    public Set<FeedType> supportedTypes() {
+        return Set.of(FeedType.CODE);
     }
 
-    private void processMovie(RssFeedRecord record) {
-        try {
-            Map<String, Object> parsed = Anitopy.parse(record.getRecordTitle());
-            if (parsed != null && !parsed.isEmpty()) {
-                record.setRecordMediaInfo(new LinkedHashMap<>(parsed));
-            }
-        } catch (RuntimeException e) {
-            // 单条标题解析失败不应导致整个 feed 更新失败。
-            log.debug("影视标题解析失败：{}", record.getRecordTitle(), e);
-        }
-    }
-
-    private void processCode(RssFeedRecord record) {
+    @Override
+    public void process(RssFeedRecord record, SyndEntry entry) {
         String patchUrl = githubPatchUrl(record.getRecordUrl());
         if (patchUrl == null) {
             return;

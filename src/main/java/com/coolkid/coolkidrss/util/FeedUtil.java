@@ -4,6 +4,7 @@ import com.coolkid.coolkidrss.aop.CacheExpire;
 import com.coolkid.coolkidrss.aop.DistributedLock;
 import com.coolkid.coolkidrss.entity.RssFeedRecord;
 import com.coolkid.coolkidrss.entity.FeedType;
+import com.coolkid.coolkidrss.service.FeedTypeProcessor;
 import com.rometools.rome.feed.synd.SyndContent;
 import com.rometools.rome.feed.synd.SyndEnclosure;
 import com.rometools.rome.feed.synd.SyndEntry;
