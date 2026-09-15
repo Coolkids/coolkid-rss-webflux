@@ -7,6 +7,7 @@ import com.coolkid.coolkidrss.model.request.FeedRecordReq;
 import com.coolkid.coolkidrss.model.request.TestRuleReq;
 import com.coolkid.coolkidrss.model.response.Page;
 import com.coolkid.coolkidrss.model.response.RssPatch;
+import com.coolkid.coolkidrss.model.tmdb.TmdbMediaInfo;
 import com.coolkid.coolkidrss.util.EasyUtil;
 import com.google.common.collect.Lists;
 import lombok.Data;
@@ -24,6 +25,7 @@ import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.util.*;
 
@@ -38,6 +40,7 @@ import java.util.*;
 @Data
 public class RssFeedRecordService {
     private final ReactiveMongoTemplate mongoTemplate;
+    private final TmdbService tmdbService;
 
     public Mono<RssPatch> getPatch(String recordId) {
         Query query = Query.query(Criteria.where("_id").is(recordId));
@@ -46,6 +49,53 @@ public class RssFeedRecordService {
         return mongoTemplate.findOne(query, RssFeedRecord.class)
                 .map(record -> new RssPatch(record.getRecordPatch(), record.getRecordPatchUrl(),
                         record.getRecordPatchSize(), record.getRecordPatchTruncated()));
+    }
+
+    /** 手动查询并覆盖记录中的 TMDB 数据，保留原有 Anitopy 字段。 */
+    public Mono<TmdbMediaInfo> refreshTmdb(String recordId, String name) {
+        if (StringUtils.isBlank(recordId) || StringUtils.isBlank(name)) {
+            return Mono.error(new IllegalArgumentException("recordId和name不能为空"));
+        }
+        Query query = Query.query(Criteria.where("_id").is(recordId));
+        query.fields().include("record_media_info");
+        return mongoTemplate.findOne(query, RssFeedRecord.class)
+                .switchIfEmpty(Mono.error(new IllegalArgumentException("record_id非法")))
+                .flatMap(record -> Mono.fromCallable(() -> tmdbService.findByName(name.trim(), mediaYear(record)))
+                        .subscribeOn(Schedulers.boundedElastic())
+                        .flatMap(found -> {
+                            if (found.isEmpty()) {
+                                return Mono.empty();
+                            }
+                            TmdbMediaInfo mediaInfo = found.get();
+                            Map<String, Object> recordMediaInfo = record.getRecordMediaInfo() == null
+                                    ? new LinkedHashMap<>()
+                                    : new LinkedHashMap<>(record.getRecordMediaInfo());
+                            recordMediaInfo.put("tmdb", mediaInfo.toMap());
+                            Update update = new Update().set("record_media_info", recordMediaInfo);
+                            return mongoTemplate.updateFirst(
+                                            Query.query(Criteria.where("_id").is(recordId)),
+                                            update, RssFeedRecord.class)
+                                    .thenReturn(mediaInfo);
+                        }));
+    }
+
+    private Integer mediaYear(RssFeedRecord record) {
+        if (record.getRecordMediaInfo() == null) {
+            return null;
+        }
+        Object value = record.getRecordMediaInfo().get("anime_year");
+        if (value == null) {
+            return null;
+        }
+        String year = String.valueOf(value).trim();
+        if (year.length() < 4) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(year.substring(0, 4));
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     public Mono<Page<RssFeedRecord>> page(FeedRecordReq feedRecordReq) {
@@ -304,6 +354,10 @@ public class RssFeedRecordService {
     }
 
     public Mono<RssFeedRecord> saveOrUpdate(RssFeedRecord entity) {
+        return saveOrUpdateWithStatus(entity).map(SaveResult::record);
+    }
+
+    private Mono<SaveResult> saveOrUpdateWithStatus(RssFeedRecord entity) {
         Query query = new Query();
 
         query.addCriteria(Criteria.where("record_sha256").is(entity.getRecordSha256()));
@@ -312,16 +366,63 @@ public class RssFeedRecordService {
         update.set("ts", new Date());
 
         return mongoTemplate.findAndModify(query, update, RssFeedRecord.class)
-                .switchIfEmpty(mongoTemplate.save(entity));
+                .map(existing -> new SaveResult(existing, false))
+                .switchIfEmpty(Mono.defer(() -> mongoTemplate.save(entity)
+                        .map(saved -> new SaveResult(saved, true))));
     }
 
     public Mono<Void> saveOrUpdate(List<RssFeedRecord> items) {
+        return saveOrUpdateAndReturn(items).then();
+    }
+
+    /** 保存记录并返回数据库中的最终记录，便于后续使用已有记录 ID 做异步补充。 */
+    public Flux<RssFeedRecord> saveOrUpdateAndReturn(List<RssFeedRecord> items) {
         if (CollectionUtils.isEmpty(items)) {
-            return Mono.empty();
+            return Flux.empty();
         }
         return Flux.fromIterable(items)
-                .flatMap(this::saveOrUpdate)
-                .then();
+                .flatMap(this::saveOrUpdate);
+    }
+
+    /** 保存记录并只返回本次真正新插入的记录，供异步类型补充使用。 */
+    public Flux<RssFeedRecord> saveOrUpdateAndReturnNew(List<RssFeedRecord> items) {
+        if (CollectionUtils.isEmpty(items)) {
+            return Flux.empty();
+        }
+        return Flux.fromIterable(items)
+                .flatMap(this::saveOrUpdateWithStatus)
+                .filter(SaveResult::inserted)
+                .map(SaveResult::record);
+    }
+
+    private record SaveResult(RssFeedRecord record, boolean inserted) {
+    }
+
+    /** 仅更新异步补充产生的字段，避免覆盖阅读状态、星标和下载状态。 */
+    public Mono<Void> updateEnrichment(RssFeedRecord record) {
+        if (record == null || StringUtils.isBlank(record.getRecordId())) {
+            return Mono.empty();
+        }
+        Update update = new Update();
+        boolean changed = false;
+        if (record.getRecordMediaInfo() != null) {
+            update.set("record_media_info", record.getRecordMediaInfo());
+            changed = true;
+        }
+        if (record.getRecordPatchUrl() != null) {
+            update.set("record_patch_url", record.getRecordPatchUrl());
+            changed = true;
+        }
+        if (record.getRecordPatch() != null) {
+            update.set("record_patch", record.getRecordPatch());
+            update.set("record_patch_size", record.getRecordPatchSize());
+            update.set("record_patch_truncated", record.getRecordPatchTruncated());
+            changed = true;
+        }
+        return changed
+                ? mongoTemplate.updateFirst(Query.query(Criteria.where("_id").is(record.getRecordId())),
+                        update, RssFeedRecord.class).then()
+                : Mono.empty();
     }
 
     public Flux<RssFeedRecord> queryByFilter(TestRuleReq testRuleReq){

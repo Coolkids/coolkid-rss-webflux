@@ -3,6 +3,8 @@ package com.coolkid.coolkidrss.service.impl;
 import cn.hutool.core.date.DateUtil;
 import com.coolkid.coolkidrss.dao.RssFeedInfoRepository;
 import com.coolkid.coolkidrss.entity.RssFeedInfo;
+import com.coolkid.coolkidrss.entity.RssFeedRecord;
+import com.coolkid.coolkidrss.service.FeedEnrichmentService;
 import com.coolkid.coolkidrss.service.FeedRecordService;
 import com.coolkid.coolkidrss.service.RssFeedRecordService;
 import com.coolkid.coolkidrss.service.RssUpdateScheduleService;
@@ -27,6 +29,7 @@ public class FeedRecordServiceImpl implements FeedRecordService {
     private final RssFeedInfoRepository rssFeedInfoRepository;
     private final FeedUtil feedUtil;
     private final RssUpdateScheduleService rssUpdateScheduleService;
+    private final FeedEnrichmentService feedEnrichmentService;
 
     @Transactional(rollbackFor = Exception.class)
     @Override
@@ -36,8 +39,9 @@ public class FeedRecordServiceImpl implements FeedRecordService {
         return Mono.fromCallable(() -> feedUtil.getItems(rssFeedInfo.getFeedUrl(), rssFeedInfo.getFeedId(), rssFeedInfo.getFeedType()))
                 .subscribeOn(Schedulers.boundedElastic())
                 .flatMap(items -> CollectionUtils.isEmpty(items)
-                        ? Mono.<Void>empty()
-                        : rssFeedRecordService.saveOrUpdate(items))
+                        ? Mono.just(java.util.List.<RssFeedRecord>of())
+                        : rssFeedRecordService.saveOrUpdateAndReturnNew(items).collectList())
+                .doOnNext(items -> feedEnrichmentService.submit(items, rssFeedInfo.getFeedType()))
                 .then(rssFeedInfoRepository.updateDateById(
                         rssFeedInfo.getFeedId(),
                         now,

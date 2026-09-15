@@ -4,12 +4,14 @@ import com.coolkid.coolkidrss.entity.RssFeedRecord;
 import com.coolkid.coolkidrss.model.request.FeedRecordReq;
 import com.coolkid.coolkidrss.model.request.RssFeedInfoPOJO;
 import com.coolkid.coolkidrss.model.request.RssFeedSortReq;
+import com.coolkid.coolkidrss.model.request.TmdbRefreshReq;
 import com.coolkid.coolkidrss.model.response.FailResult;
 import com.coolkid.coolkidrss.model.response.Page;
 import com.coolkid.coolkidrss.model.response.Result;
 import com.coolkid.coolkidrss.model.response.RssFeedInfoList;
 import com.coolkid.coolkidrss.model.response.RssPatch;
 import com.coolkid.coolkidrss.model.response.SuccessResult;
+import com.coolkid.coolkidrss.model.tmdb.TmdbMediaInfo;
 import com.coolkid.coolkidrss.service.FeedService;
 import com.coolkid.coolkidrss.service.RssFeedRecordService;
 import lombok.Data;
@@ -48,6 +50,27 @@ public class FeedController {
         return rssFeedRecordService.getPatch(recordId)
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("record_id非法")))
                 .map(SuccessResult::new);
+    }
+
+    @PostMapping("refreshTmdb")
+    public Mono<Result<TmdbMediaInfo>> refreshTmdb(@RequestBody TmdbRefreshReq request) {
+        if (request == null) {
+            return Mono.just(tmdbFailure("请求参数不能为空"));
+        }
+        return rssFeedRecordService.refreshTmdb(request.getRecordId(), request.getName())
+                .map(mediaInfo -> {
+                    Result<TmdbMediaInfo> result = new SuccessResult<>();
+                    result.setData(mediaInfo);
+                    return result;
+                })
+                .switchIfEmpty(Mono.fromSupplier(() -> tmdbFailure("未找到匹配的 TMDB 数据")));
+    }
+
+    private Result<TmdbMediaInfo> tmdbFailure(String message) {
+        FailResult<TmdbMediaInfo> result = new FailResult<>();
+        result.setCode(404);
+        result.setMessage(message);
+        return result;
     }
 
     @GetMapping("readRecord")

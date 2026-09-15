@@ -87,6 +87,11 @@ docker build \
 | `CRW_SETTING_CLEAN_DATA` | `coolkidrss.clean.data` | `false` | 是否启用历史数据清理 |
 | `CRW_SETTING_CLEAN_DATA_MONTH` | `coolkidrss.keep.data.month` | `12` | 保留最近多少个月的数据 |
 | `CRW_RSS_CODE_PATCH_MAX_BYTES` | `coolkidrss.rss.code.patch.max-bytes` | `524288` | 单条代码 patch 最大保存字节数 |
+| `CRW_RSS_ENRICHMENT_CONCURRENCY` | `coolkidrss.rss.enrichment.concurrency` | `3` | RSS 类型数据异步补充的全局并发数，限制 TMDB 和代码 patch 外部请求 |
+| `CRW_TMDB_API_TOKEN` | `coolkidrss.tmdb.api-token` | 空 | TMDB API Read Access Token；支持使用 `;` 分隔多个 Token，查询失败时自动切换；查询结果 Redis 缓存 7 天 |
+| `CRW_TMDB_BASE_URL` | `coolkidrss.tmdb.base-url` | `https://api.themoviedb.org/3` | TMDB API 地址 |
+| `CRW_TMDB_LANGUAGE` | `coolkidrss.tmdb.language` | `zh-CN` | TMDB 搜索和详情语言 |
+| `CRW_TMDB_IMAGE_BASE_URL` | `coolkidrss.tmdb.image-base-url` | `https://image.tmdb.org/t/p/w500` | TMDB 图片基础地址 |
 
 示例：
 
@@ -96,9 +101,12 @@ export CRW_REDIS_HOST='127.0.0.1'
 export CRW_REDIS_PORT='6379'
 export CRW_REDIS_PW='your-redis-password'
 export CRW_REDIS_DB='1'
+export CRW_TMDB_API_TOKEN='your-tmdb-api-read-access-token'
 
 mvn spring-boot:run
 ```
+
+影视类型 Feed 会先使用 Anitopy 提取 `anime_title` 和 `anime_year`，再调用 TMDB 搜索并读取电影或剧集详情。查询结果会保存到记录的 `recordMediaInfo.tmdb` 中，包含 TMDB ID、名称、发布年份、海报地址、背景图地址、简介、类型、评分、分类和时长等信息；未配置 Token 或查询失败时仍会保留 RSS 和 Anitopy 数据。TMDB 接口采用 Bearer Token 认证，详见 [TMDB 官方文档](https://developer.themoviedb.org/docs/getting-started)。
 
 服务启动后地址为：
 
