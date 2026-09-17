@@ -14,6 +14,7 @@ import com.coolkid.coolkidrss.util.RssIdUtil;
 import com.google.common.collect.Maps;
 import jakarta.annotation.PostConstruct;
 import lombok.Data;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -109,12 +110,20 @@ public class RssDlInfoServiceImpl implements RssDlInfoService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Mono<Void> download(DownloadRecordReq downloadRecordReq) {
-        String recordTitle = downloadRecordReq.getRecordTitle();
-        if (Objects.nonNull(recordTitle)) {
-            return rssFeedRecordService.updateDownStatusByRecordTitle(recordTitle, 1)
-                    .then(executeDownload(downloadRecordReq));
+        return executeDownload(downloadRecordReq)
+                .then(markRecordDownloaded(downloadRecordReq));
+    }
+
+    private Mono<Void> markRecordDownloaded(DownloadRecordReq downloadRecordReq) {
+        if (Objects.nonNull(downloadRecordReq.getRecordId())) {
+            return rssFeedRecordService.updateDownStatusByRecordId(
+                    String.valueOf(downloadRecordReq.getRecordId()), 1);
         }
-        return executeDownload(downloadRecordReq);
+        if (StringUtils.isNotBlank(downloadRecordReq.getRecordTitle())) {
+            return rssFeedRecordService.updateDownStatusByRecordTitle(
+                    downloadRecordReq.getRecordTitle(), 1);
+        }
+        return Mono.empty();
     }
 
     private Mono<Void> executeDownload(DownloadRecordReq downloadRecordReq) {

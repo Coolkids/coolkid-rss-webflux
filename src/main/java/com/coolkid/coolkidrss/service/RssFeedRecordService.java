@@ -448,4 +448,12 @@ public class RssFeedRecordService {
         update.set("record_isdl", i);
         return mongoTemplate.updateMulti(query, update, RssFeedRecord.class).then();
     }
+
+    public Mono<Void> updateDownStatusByRecordId(String recordId, int i) {
+        Query query = Query.query(Criteria.where("_id").is(recordId));
+        query.fields().include("record_title");
+        return mongoTemplate.findOne(query, RssFeedRecord.class)
+                .switchIfEmpty(Mono.error(new IllegalArgumentException("Feed记录不存在: " + recordId)))
+                .flatMap(record -> updateDownStatusByRecordTitle(record.getRecordTitle(), i));
+    }
 }
