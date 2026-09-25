@@ -51,7 +51,7 @@ public class RssFeedRecordService {
                         record.getRecordPatchSize(), record.getRecordPatchTruncated()));
     }
 
-    /** 手动查询并覆盖记录中的 TMDB 数据，保留原有 Anitopy 字段。 */
+    /** 手动查询并覆盖记录中的 TMDB 数据，保留原有标题解析字段。 */
     public Mono<TmdbMediaInfo> refreshTmdb(String recordId, String name) {
         if (StringUtils.isBlank(recordId) || StringUtils.isBlank(name)) {
             return Mono.error(new IllegalArgumentException("recordId和name不能为空"));
@@ -83,7 +83,11 @@ public class RssFeedRecordService {
         if (record.getRecordMediaInfo() == null) {
             return null;
         }
-        Object value = record.getRecordMediaInfo().get("anime_year");
+        Object value = record.getRecordMediaInfo().get("year");
+        if (value == null) {
+            // 兼容旧版 Anitopy 记录。
+            value = record.getRecordMediaInfo().get("anime_year");
+        }
         if (value == null) {
             return null;
         }

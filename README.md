@@ -12,7 +12,7 @@
 
 - RSS/Atom 订阅源管理、手动刷新和排序
 - Feed 类型支持影视、新闻、代码、音乐和其他；默认为其他
-- 影视 Feed 使用 anitopy4j 提取媒体名称、集数、分辨率等元数据
+- 影视 Feed 使用 anitopy-ml 服务提取媒体名称、集数、分辨率等元数据
 - GitHub 代码 Feed 自动保存提交 patch，阅读页按需加载并预览变更
 - Feed 内容定时更新，未读/收藏状态管理
 - 普通关键词、排除关键词、`|` 或条件和正则表达式过滤
@@ -33,7 +33,7 @@
 | MongoDB | Spring Data MongoDB Reactive |
 | Redis | Reactive Redis、缓存和分布式锁 |
 | RSS 解析 | Rome 2.1.0 |
-| 影视标题解析 | GitHub `https://github.com/Coolkids/anitopy4j` |
+| 影视标题解析 | 本地 anitopy-ml HTTP 服务 |
 | HTTP 客户端 | OkHttp 5.5.0 |
 | 构建工具 | Maven |
 
@@ -45,29 +45,7 @@
 - Redis
 - 可选：qBittorrent Web API 或 Transmission RPC
 
-影视标题解析依赖 GitHub 仓库 [Coolkids/anitopy4j](https://github.com/Coolkids/anitopy4j)。首次构建后端前，从远程仓库获取并安装依赖：
-
-```bash
-git clone --depth 1 https://github.com/Coolkids/anitopy4j.git anitopy4j
-mvn -f anitopy4j/pom.xml install -DskipTests
-```
-
-如果依赖仓库已经克隆，只需重新执行 Maven 安装命令。完整构建顺序为：
-
-```bash
-mvn -f anitopy4j/pom.xml install -DskipTests
-mvn clean package -DskipTests
-```
-
-容器镜像构建会自动克隆并安装 `anitopy4j`，无需预先安装到宿主机 Maven 仓库。请在 `coolkid-rss-container` 仓库目录执行：
-
-```bash
-cd ../code/coolkid-rss-container
-docker build \
-  --build-arg ANITOPY_REPO=https://github.com/Coolkids/anitopy4j.git \
-  --build-arg ANITOPY_REF=main \
-  -t coolkid-rss .
-```
+影视标题解析依赖单独运行的 [anitopy-ml](https://github.com/Coolkids/anitopy-ml) 服务。服务需要提供 `POST /v1/parse` 接口，默认地址为 `http://127.0.0.1:8000`。
 
 ## 配置
 
@@ -92,6 +70,9 @@ docker build \
 | `CRW_TMDB_BASE_URL` | `coolkidrss.tmdb.base-url` | `https://api.themoviedb.org/3` | TMDB API 地址 |
 | `CRW_TMDB_LANGUAGE` | `coolkidrss.tmdb.language` | `zh-CN` | TMDB 搜索和详情语言 |
 | `CRW_TMDB_IMAGE_BASE_URL` | `coolkidrss.tmdb.image-base-url` | `https://image.tmdb.org/t/p/w500` | TMDB 图片基础地址 |
+| `CRW_ANITOPY_ML_BASE_URL` | `coolkidrss.anitopy-ml.base-url` | `http://127.0.0.1:8000` | anitopy-ml 服务地址 |
+| `CRW_ANITOPY_ML_CONNECT_TIMEOUT` | `coolkidrss.anitopy-ml.connect-timeout-seconds` | `5` | 连接超时时间（秒） |
+| `CRW_ANITOPY_ML_CALL_TIMEOUT` | `coolkidrss.anitopy-ml.call-timeout-seconds` | `15` | 单次解析请求超时时间（秒） |
 
 示例：
 
@@ -102,11 +83,12 @@ export CRW_REDIS_PORT='6379'
 export CRW_REDIS_PW='your-redis-password'
 export CRW_REDIS_DB='1'
 export CRW_TMDB_API_TOKEN='your-tmdb-api-read-access-token'
+export CRW_ANITOPY_ML_BASE_URL='http://127.0.0.1:8000'
 
 mvn spring-boot:run
 ```
 
-影视类型 Feed 会先使用 Anitopy 提取 `anime_title` 和 `anime_year`，再调用 TMDB 搜索并读取电影或剧集详情。查询结果会保存到记录的 `recordMediaInfo.tmdb` 中，包含 TMDB ID、名称、发布年份、海报地址、背景图地址、简介、类型、评分、分类和时长等信息；未配置 Token 或查询失败时仍会保留 RSS 和 Anitopy 数据。TMDB 接口采用 Bearer Token 认证，详见 [TMDB 官方文档](https://developer.themoviedb.org/docs/getting-started)。
+影视类型 Feed 会先调用 anitopy-ml 的 `/v1/parse` 提取 `result.extracted`，再使用其中的 `title` 和 `year` 调用 TMDB 搜索并读取电影或剧集详情。查询结果会保存到记录的 `recordMediaInfo.tmdb` 中，包含 TMDB ID、名称、发布年份、海报地址、背景图地址、简介、类型、评分、分类和时长等信息；解析服务或 TMDB 查询失败时仍会保留 RSS 和已有数据。TMDB 接口采用 Bearer Token 认证，详见 [TMDB 官方文档](https://developer.themoviedb.org/docs/getting-started)。
 
 服务启动后地址为：
 
@@ -167,6 +149,25 @@ mvn test -Dsurefire.skip=false
 | POST | `/api/feed/sorton` | 批量更新订阅源排序 |
 | POST | `/api/feed/save` | 新增或更新订阅源 |
 | POST | `/api/feed/flush` | 立即刷新指定订阅源 |
+
+### TMDB 未匹配标题
+
+影视标题解析成功但 TMDB 没有匹配结果时，服务会按订阅和原始标题保存一条 anitopy-ml 解析记录。前端“TMDB 未匹配”页面通过以下接口查询：
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| POST | `/api/anitopyTmdbMiss/page` | 按标题关键词、Feed 分页查询未匹配记录 |
+
+请求体示例：
+
+```json
+{
+  "title": "标题关键词",
+  "feedId": "",
+  "page": 1,
+  "pageSize": 20
+}
+```
 
 新增订阅源示例：
 

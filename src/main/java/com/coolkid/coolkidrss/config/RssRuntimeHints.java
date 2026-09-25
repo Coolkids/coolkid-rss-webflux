@@ -2,10 +2,12 @@ package com.coolkid.coolkidrss.config;
 
 import com.coolkid.coolkidrss.entity.RssDlInfo;
 import com.coolkid.coolkidrss.entity.RssDlLog;
+import com.coolkid.coolkidrss.entity.AnitopyTmdbMiss;
 import com.coolkid.coolkidrss.entity.RssFeedInfo;
 import com.coolkid.coolkidrss.entity.RssFeedRecord;
 import com.coolkid.coolkidrss.entity.RssRuleInfo;
 import com.coolkid.coolkidrss.model.request.FeedRecordReq;
+import com.coolkid.coolkidrss.model.request.AnitopyTmdbMissReq;
 import com.coolkid.coolkidrss.model.request.TmdbRefreshReq;
 import com.coolkid.coolkidrss.model.task.DownloadParam;
 import com.coolkid.coolkidrss.model.response.RssPatch;
@@ -43,12 +45,14 @@ public class RssRuntimeHints implements RuntimeHintsRegistrar {
                 String.class,
                 RssDlInfo.class,
                 RssDlLog.class,
+                AnitopyTmdbMiss.class,
                 RssFeedInfo.class,
                 RssFeedRecord.class,
                 RssPatch.class,
                 TmdbMediaInfo.class,
                 RssRuleInfo.class,
                 FeedRecordReq.class,
+                AnitopyTmdbMissReq.class,
                 TmdbRefreshReq.class,
                 DownloadParam.class
         };
